@@ -1,180 +1,132 @@
-Project Overview
+# VProfile — Multi-Tier Web Application Deployment on AWS
+
+A reference deployment of the VProfile Java web application on Amazon Web Services (AWS). This repository documents a scalable, load-balanced architecture using managed services for compute, database, caching, messaging, content delivery, and monitoring.
+
+[![Architecture Diagram](./docs/architecture.png)](./docs/architecture.png)
+
+Table of contents
+
+- Project overview
+- Architecture
+- AWS services used
+- Technology stack
+- Quick start (high level)
+- Deployment checklist
+- Configuration
+- Monitoring & troubleshooting
+- Security considerations
+- Contributing
+- License
+
+Project overview
+
+This repository demonstrates how to deploy a Java web application (VProfile) on AWS using AWS Elastic Beanstalk (Tomcat), an Application Load Balancer, Amazon RDS (MySQL), caching, messaging, S3 artifact storage, CloudFront and Route 53 for content delivery and DNS, and CloudWatch for monitoring.
+
+Architecture
+
+The deployment follows a multi-tier architecture:
 
-This project demonstrates the deployment of the VProfile multi-tier Java web application on Amazon Web Services (AWS). The architecture uses AWS services for application hosting, traffic distribution, database management, caching, message brokering, content delivery, and monitoring.
+- Users -> Route 53 -> CloudFront (optional CDN) -> Application Load Balancer -> Elastic Beanstalk (EC2 + Tomcat)
+- Application tier connects to Amazon RDS (MySQL) for persistence
+- Memcached for caching layer (ElastiCache or self-managed)
+- Amazon MQ for asynchronous messaging between services
+- Amazon S3 stores deployment artifacts and static assets
+- CloudWatch collects logs and metrics
 
-Deploy the VProfile Java web application on AWS using a scalable, load-balanced architecture with managed database services, caching, messaging, content delivery, and monitoring.
+If available, open docs/architecture.png for a visual diagram.
 
+AWS services used
 
-The application is deployed using AWS Elastic Beanstalk with Apache Tomcat, with an Application Load Balancer and EC2 instances to support scalable application hosting.<img width="769" height="625" alt="image" src="https://github.com/user-attachments/assets/89bb28ae-2bea-4516-8869-d720db9ae3e9" />
+| Service | Purpose |
+|---|---|
+| Amazon Route 53 | DNS routing for the application domain |
+| Amazon CloudFront | Content delivery and edge caching (optional) |
+| AWS Elastic Beanstalk | Application environment management and deployment (Tomcat) |
+| Amazon EC2 | Compute instances serving the application |
+| Application Load Balancer | Distributes incoming HTTP(S) traffic across instances |
+| Auto Scaling | Scales EC2 instances based on load |
+| Amazon RDS (MySQL) | Managed relational database |
+| Memcached (ElastiCache or self-managed) | Caching to reduce repeated DB queries |
+| Amazon MQ | Message broker for asynchronous communication |
+| Amazon S3 | Stores deployment artifacts and static assets |
+| Amazon CloudWatch | Monitoring, logs, alarms |
 
-The architecture illustrates the request flow from users through Amazon Route 53 and Amazon CloudFront to the application hosted on AWS Elastic Beanstalk.
+Technology stack
 
-The application communicates with supporting services, including Amazon RDS for MySQL, Memcached, and Amazon MQ. Amazon S3 stores application artifacts, while Amazon CloudWatch provides monitoring and logging capabilities.
+- Application: VProfile Java web application
+- Application server: Apache Tomcat
+- Cloud: AWS (Elastic Beanstalk, EC2)
+- Database: MySQL (Amazon RDS)
+- Caching: Memcached (ElastiCache or on-EC2)
+- Messaging: Amazon MQ
+- CDN/DNS: CloudFront, Route 53
+- Monitoring: CloudWatch
 
-AWS Services Used
+Quick start (high level)
 
-AWS Service
+Prerequisites
 
-Purpose
+- An AWS account with permissions to create Elastic Beanstalk applications, RDS instances, S3 buckets, IAM roles/policies, and ElastiCache/Amazon MQ resources.
+- AWS CLI and EB CLI installed and configured locally with appropriate credentials.
+- A built WAR file of the VProfile application.
 
-Amazon Route 53
+High-level deployment steps
 
-DNS routing for the application domain
+1. Build the application and produce a WAR file (for Tomcat).
+2. Create an S3 bucket to hold application versions (Elastic Beanstalk can use the bucket automatically).
+3. Provision an Amazon RDS MySQL instance (private subnet recommended).
+4. Configure security groups so the EB environment can reach the RDS instance on the MySQL port.
+5. Create an Elastic Beanstalk application and a Tomcat environment; upload the WAR as an application version.
+6. Configure environment properties in Elastic Beanstalk for database connection (JDBC URL, username, password stored in EB environment configuration or AWS Secrets Manager).
+7. Configure and attach an Application Load Balancer for the environment (EB can create this automatically).
+8. Optionally provision ElastiCache (Memcached) and Amazon MQ, and configure application properties to use them.
+9. Configure Route 53 records and CloudFront distribution (if using CDN) to point to the load balancer or CloudFront origin.
+10. Verify health via the Elastic Beanstalk console and monitor logs with CloudWatch.
 
-Amazon CloudFront
+Deployment checklist (recommended)
 
-Content delivery and edge caching
+- [ ] Use separate environments for dev/stage/prod
+- [ ] Place database in private subnets, application instances in public/private subnets as appropriate
+- [ ] Use IAM roles for EC2/Elastic Beanstalk with least privilege
+- [ ] Store secrets in AWS Secrets Manager or SSM Parameter Store (do not hard-code credentials)
+- [ ] Enable automated backups for RDS and enable Multi-AZ for production
+- [ ] Configure HTTPS on the load balancer and redirect HTTP to HTTPS
+- [ ] Configure health checks for the ALB and EB environment
 
-AWS Elastic Beanstalk
+Configuration
 
-Application deployment and environment management
+Important environment configuration keys (example names)
 
-Amazon EC2
+- DB_URL: jdbc:mysql://<rds-endpoint>:3306/vprofile
+- DB_USER: vprofile_user
+- DB_PASSWORD: (store in Secrets Manager; reference from EB env or use SSM)
+- CACHE_HOST: host:port for Memcached
+- MQ_BROKER_URL: connection URL for Amazon MQ
+- AWS_REGION: AWS region where the resources are deployed
 
-Compute instances running the application
+Monitoring & troubleshooting
 
-Application Load Balancer
+- Use Elastic Beanstalk environment health and events to inspect immediate deployment issues.
+- Stream application logs to CloudWatch Logs (configure EB log streaming or use a sidecar/agent).
+- Monitor RDS metrics (CPU, connections, FreeableMemory) and set alarms on critical thresholds.
+- Use CloudWatch metrics and ELB target health to scale and diagnose availability issues.
 
-Distributes incoming traffic across application instances
+Security considerations
 
-Auto Scaling
+- Limit inbound access to the database and cache to only the application security group(s).
+- Use HTTPS/TLS for all external traffic. Terminate TLS at the ALB and use HTTPS between ALB and backend if required.
+- Use IAM roles for EC2/Beanstalk and grant least privilege for S3, RDS, MQ, and CloudWatch access.
+- Audit S3 bucket permissions and avoid public read/write access unless explicitly required.
+- Rotate credentials periodically and use AWS Secrets Manager or SSM Parameter Store for secrets.
 
-Adjusts the number of EC2 instances based on configured policies
+Contributing
 
-Amazon RDS for MySQL
+Contributions, suggestions and improvements are welcome. Please open an issue or create a pull request.
 
-Managed relational database
+License
 
-Memcached
+Specify your project license here (e.g., MIT, Apache-2.0) or remove this section if you prefer a different license.
 
-Caching to reduce repeated database queries where supported
+Contact
 
-Amazon MQ
-
-Message brokering between application components
-
-Amazon S3
-
-Stores application deployment artifacts
-
-Amazon CloudWatch
-
-Monitoring, metrics, logs, and alarms
-
-Technology Stack
-
-Application: VProfile Java web application
-
-Application Server: Apache Tomcat
-
-Cloud Platform: Amazon Web Services (AWS)
-
-Compute: Amazon EC2
-
-Deployment: AWS Elastic Beanstalk
-
-Database: MySQL on Amazon RDS
-
-Caching: Memcached
-
-Messaging: Amazon MQ
-
-Networking and Content Delivery: Route 53, CloudFront, Application Load Balancer
-
-Monitoring: Amazon CloudWatch
-
-Artifact Storage: Amazon S3
-
-Architecture Workflow
-
-Users access the application through its configured domain name.
-
-Amazon Route 53 resolves the domain to the configured endpoint.
-
-Amazon CloudFront handles content delivery according to its distribution and origin configuration.
-
-Requests reach the application through the configured Elastic Beanstalk environment and Application Load Balancer.
-
-EC2 instances run the Java application using Apache Tomcat.
-
-The application connects to Amazon RDS for MySQL to store and retrieve application data.
-
-Memcached provides caching for supported application operations.
-
-Amazon MQ supports asynchronous communication between components where configured.
-
-Amazon S3 stores application deployment artifacts.
-
-Amazon CloudWatch collects relevant metrics and logs for monitoring and troubleshooting.
-
-Note: The actual request flow depends on the configured CloudFront origin, routing rules, and application settings.
-
-Project Implementation
-
-1. Application Deployment
-
-Prepared the VProfile application package for deployment.
-
-Configured an AWS Elastic Beanstalk environment for the Java application.
-
-Deployed the application to the Apache Tomcat environment.
-
-Verified application availability using the configured endpoint.
-
-2. Load Balancing and Scaling
-
-Configured an Application Load Balancer for incoming application traffic.
-
-Used EC2 instances to host the application.
-
-Configured Auto Scaling policies where required.
-
-Validated the health of registered targets and application instances.
-
-3. Database Integration
-
-Configured Amazon RDS for MySQL.
-
-Established database connectivity from the application environment.
-
-Configured database connection parameters securely.
-
-Verified database connectivity and application functionality.
-
-4. Caching and Messaging
-
-Configured Memcached for supported caching operations.
-
-Integrated Amazon MQ for message-broker communication.
-
-Verified connectivity between the application and the required supporting services.
-
-5. Content Delivery and Artifact Storage
-
-Configured Amazon Route 53 for DNS resolution.
-
-Used Amazon CloudFront for content delivery.
-
-Stored application deployment artifacts in Amazon S3.
-
-6. Monitoring and Troubleshooting
-
-Used Amazon CloudWatch to monitor available infrastructure metrics and application logs.
-
-Checked Elastic Beanstalk environment health.
-
-Investigated application deployment and connectivity issues using logs and service metrics.
-
-Security Considerations
-
-Restricted database access to authorized application resources.
-
-Used security groups to control inbound and outbound network traffic.
-
-Applied least-privilege IAM permissions wherever possible.
-
-Avoided storing database credentials and AWS access keys in source code.
-
-Used HTTPS where configured and ensured sensitive application settings were protected.
-
-Reviewed access permissions for S3 buckets and other AWS resources.
+For questions about this deployment or the VProfile application, open an issue in this repository.
