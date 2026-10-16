@@ -2,7 +2,7 @@
 
 A reference deployment of the VProfile Java web application on Amazon Web Services (AWS). This repository documents a scalable, load-balanced architecture using managed services for compute, database, caching, messaging, content delivery, and monitoring.
 
-[![Architecture Diagram](./docs/architecture.png)](./docs/architecture.png)
+<img width="772" height="623" alt="image" src="https://github.com/user-attachments/assets/ca5e564e-be62-4390-acf9-fa5d29d09a76" />
 
 Table of contents
 
